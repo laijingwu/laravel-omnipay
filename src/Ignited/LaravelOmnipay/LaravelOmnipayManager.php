@@ -9,7 +9,7 @@ class LaravelOmnipayManager {
     /**
      * The application instance.
      *
-     * @var \Illuminate\Foundation\Application
+     * @var \Illuminate\Foundation\Application | \Laravel\Lumen\Application
      */
     protected $app;
 
@@ -27,7 +27,7 @@ class LaravelOmnipayManager {
 
     /**
      * The Guzzle client to use (null means use default)
-     * @var \Guzzle\Http\Client|null
+     * @var \GuzzleHttp\Client|null
      */
     protected $httpClient;
 
@@ -41,10 +41,10 @@ class LaravelOmnipayManager {
     /**
      * Create a new omnipay manager instance.
      *
-     * @param  \Illuminate\Foundation\Application $app
-     * @param $factory
+     * @param \Illuminate\Foundation\Application | \Laravel\Lumen\Application $app
+     * @param \Omnipay\Common\GatewayFactory $factory
      */
-    public function __construct($app, $factory)
+    public function __construct($app, GatewayFactory $factory)
     {
         $this->app = $app;
         $this->factory = $factory;
@@ -52,14 +52,14 @@ class LaravelOmnipayManager {
 
     /** 
      * Get an instance of the specified gateway
-     * @param  index of config array to use
-     * @return Omnipay\Common\AbstractGateway
+     * @param string index of config array to use
+     * @return \Omnipay\Common\AbstractGateway
      */
     public function gateway($name = null)
     {
         $name = $name ?: $this->getGateway();
 
-        if ( ! isset($this->gateways[$name]))
+        if (!isset($this->gateways[$name]))
         {
             $this->gateways[$name] = $this->resolve($name);
         }
@@ -71,7 +71,7 @@ class LaravelOmnipayManager {
     {
         $config = $this->getConfig($name);
 
-        if(is_null($config))
+        if (is_null($config))
         {
             throw new \UnexpectedValueException("Gateway [$name] is not defined.");
         }
@@ -101,14 +101,25 @@ class LaravelOmnipayManager {
 
     protected function getDefault()
     {
-        return $this->app['config']['laravel-omnipay.default'];
+        return $this->app['config']['omnipay.default'];
     }
 
+    /**
+     * Get the configuration.
+     *
+     * @param string $name
+     * @return mixed
+     */
     protected function getConfig($name)
     {
-        return $this->app['config']["laravel-omnipay.gateways.{$name}"];
+        return $this->app['config']['omnipay.gateways.{$name}'];
     }
 
+    /**
+     * Get the gateway name.
+     *
+     * @return string
+     */
     public function getGateway()
     {
         if(!isset($this->gateway))
@@ -118,16 +129,32 @@ class LaravelOmnipayManager {
         return $this->gateway;
     }
 
+    /**
+     * Set the gateway name.
+     *
+     * @param string $name
+     * @return void
+     */
     public function setGateway($name)
     {
         $this->gateway = $name;
     }
 
+    /**
+     * Set a Guzzle client instance.
+     *
+     * @param \GuzzleHttp\Client $httpClient
+     */
     public function setHttpClient($httpClient)
     {
         $this->httpClient = $httpClient;
     }
 
+    /**
+     * Get the Guzzle client instance.
+     *
+     * @return \GuzzleHttp\Client
+     */
     public function getHttpClient()
     {
         return $this->httpClient;
@@ -135,11 +162,9 @@ class LaravelOmnipayManager {
 
     public function __call($method, $parameters)
     {
-        $callable = [$this->gateway(), $method];
-
         if(method_exists($this->gateway(), $method))
         {
-            return call_user_func_array($callable, $parameters);
+            return call_user_func_array([$this->gateway(), $method], $parameters);
         }
 
         throw new \BadMethodCallException("Method [$method] is not supported by the gateway [$this->gateway].");
